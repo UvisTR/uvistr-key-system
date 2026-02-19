@@ -1,3 +1,219 @@
+app.get("/admin", (req, res) => {
+    let keyRows = Object.keys(keys).map(k => `
+        <div class="key-card">
+            <div class="key-info">
+                <span class="key-name">${k}</span>
+                <span class="key-expiry">📅 Bitiş: ${keys[k].expiry}</span>
+                <span class="key-hwid">🆔 HWID: ${keys[k].hwid || '<span style="color:#fbbf24">Bekleniyor</span>'}</span>
+            </div>
+            <div class="key-actions">
+                <a href="/reset?key=${encodeURIComponent(k)}" class="btn reset">Sıfırla</a>
+                <a href="/delete?key=${encodeURIComponent(k)}" class="btn delete">Sil</a>
+            </div>
+        </div>
+    `).join("");
+
+    res.send(`
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>UvisTR Admin Panel</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a, #1e293b, #0f172a);
+            background-size: 300% 300%;
+            animation: bgMove 18s ease infinite;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 40px;
+            overflow-x: hidden;
+        }
+
+        @keyframes bgMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glow-cursor {
+            position: fixed;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(56,189,248,0.35) 0%, transparent 70%);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+            filter: blur(25px);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 {
+            text-align: center;
+            color: #38bdf8;
+            font-size: 3.2rem;
+            margin-bottom: 40px;
+            text-shadow: 0 0 30px rgba(56,189,248,0.5);
+            letter-spacing: 3px;
+            animation: titlePulse 4s infinite alternate;
+        }
+
+        @keyframes titlePulse {
+            0% { text-shadow: 0 0 20px rgba(56,189,248,0.4); }
+            100% { text-shadow: 0 0 40px rgba(56,189,248,0.8); }
+        }
+
+        .add-form {
+            background: rgba(30,41,59,0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(56,189,248,0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .add-form input {
+            padding: 14px;
+            margin: 10px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(50,60,80,0.7);
+            color: white;
+            font-size: 1.1rem;
+            width: 280px;
+        }
+
+        .add-form button {
+            padding: 14px 30px;
+            background: linear-gradient(90deg, #38bdf8, #60a5fa);
+            border: none;
+            border-radius: 10px;
+            color: black;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.4s;
+        }
+
+        .add-form button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 35px rgba(56,189,248,0.5);
+        }
+
+        .key-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 20px;
+        }
+
+        .key-card {
+            background: rgba(30,41,59,0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid rgba(56,189,248,0.25);
+            transition: all 0.4s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .key-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 50px rgba(56,189,248,0.3);
+            border-color: #38bdf8;
+        }
+
+        .key-info {
+            flex: 1;
+        }
+
+        .key-name {
+            font-size: 1.6rem;
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        .key-expiry, .key-hwid {
+            display: block;
+            margin: 8px 0;
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        .key-actions a {
+            padding: 10px 18px;
+            margin-left: 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .reset { background: #fbbf24; color: black; }
+        .delete { background: #ef4444; color: white; }
+
+        .reset:hover, .delete:hover {
+            transform: scale(1.08);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glow-cursor" id="glow"></div>
+
+    <div class="container">
+        <h1>UvisTR Yönetim Paneli</h1>
+
+        <div class="add-form">
+            <form action="/add" method="POST">
+                <input name="key" placeholder="Yeni Key (ör: Premium2026)" required />
+                <input name="expiry" type="date" required />
+                <button type="submit">Key Ekle</button>
+            </form>
+        </div>
+
+        <div class="key-list">
+            ${keyRows}
+        </div>
+
+        <br><br>
+        <a href="/change-password" style="color:#38bdf8; text-decoration:none; font-size:1.2rem;">Şifre Değiştir</a>
+    </div>
+
+    <script>
+        const glow = document.getElementById("glow");
+
+        document.addEventListener("mousemove", (e) => {
+            glow.style.left = e.clientX + "px";
+            glow.style.top = e.clientY + "px";
+            glow.style.opacity = 0.8;
+        });
+
+        document.addEventListener("mouseleave", () => {
+            glow.style.opacity = 0;
+        });
+    </script>
+</body>
+</html>
+    `);
+});
+
+
 const express = require("express");
 const app = express();
 app.use(express.urlencoded({ extended: true }));
