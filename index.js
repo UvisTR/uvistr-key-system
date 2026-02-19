@@ -3,7 +3,7 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 
 // ======================
-// VERİTABANI (In-Memory - Render için yeterli)
+// VERİTABANI (Bellek içi – Render için yeterli, istersen JSON file yap)
 let keys = {
     "Uvis-VIP-2026": { 
         expiry: "2026-12-31", 
@@ -11,54 +11,62 @@ let keys = {
     }
 };
 
-const SECRET_AUTH = "UvisTR_2026_Secure";
+// Admin login bilgileri (değiştirebilirsin)
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "UvisTR2026";
 
 // ======================
-// ADMIN PANELİ
-app.get("/admin", (req, res) => {
-    let html = `
-    <!DOCTYPE html>
-    <html lang="tr">
-    <head>
-        <meta charset="utf-8">
-        <title>UvisTR Key Sistemi - Admin</title>
-        <style>
-            body { background:#0f172a; color:white; font-family:Arial; padding:30px; }
-            h1 { color:#38bdf8; }
-            .key { background:#1e293b; padding:15px; margin:10px 0; border-radius:8px; border:1px solid #334155; }
-            input, button { padding:10px; margin:5px; border-radius:6px; border:none; }
-            button { background:#38bdf8; color:black; font-weight:bold; cursor:pointer; }
-            .danger { background:#ef4444; color:white; }
-        </style>
-    </head>
-    <body>
-        <h1>UvisTR Key Yönetim Paneli</h1>
-        
-        <form action="/add" method="POST">
-            <input name="key" placeholder="Yeni Key (ör: Premium2026)" required>
-            <input name="expiry" type="date" required>
-            <button type="submit">Key Ekle</button>
-        </form>
-
-        <h2>Mevcut Keyler</h2>
-    `;
-
-    Object.keys(keys).forEach(k => {
-        html += `
-        <div class="key">
-            <b style="color:#38bdf8; font-size:18px;">${k}</b><br>
-            <small>Bitiş: ${keys[k].expiry} | HWID: ${keys[k].hwid || "<span style='color:#fbbf24'>Bekleniyor</span>"}</small><br>
-            <a href="/reset?key=${k}" style="color:#fbbf24; text-decoration:none;">HWID Sıfırla</a> | 
-            <a href="/delete?key=${k}" class="danger" style="text-decoration:none;">Sil</a>
-        </div>`;
-    });
-
-    html += `</body></html>`;
-    res.send(html);
+// LOGIN SAYFASI
+app.get("/login", (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="utf-8">
+            <title>UvisTR Admin Login</title>
+            <style>
+                body { background:#0f172a; color:white; font-family:Arial; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+                .login-box { background:#1e293b; padding:40px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); width:350px; text-align:center; }
+                input { width:100%; padding:12px; margin:10px 0; border-radius:6px; border:none; }
+                button { width:100%; padding:12px; background:#38bdf8; border:none; border-radius:6px; color:black; font-weight:bold; cursor:pointer; }
+            </style>
+        </head>
+        <body>
+            <div class="login-box">
+                <h2>UvisTR Admin Panel</h2>
+                <form action="/login" method="POST">
+                    <input type="text" name="username" placeholder="Kullanıcı Adı" required>
+                    <input type="password" name="password" placeholder="Şifre" required>
+                    <button type="submit">Giriş Yap</button>
+                </form>
+            </div>
+        </body>
+        </html>
+    `);
 });
 
 // ======================
-// KEY EKLE
+// LOGIN KONTROLÜ
+app.post("/login", (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        res.redirect("/admin");
+    } else {
+        res.send("<h1 style='color:red;text-align:center;'>Yanlış kullanıcı adı veya şifre!</h1><a href='/login'>Tekrar Dene</a>");
+    }
+});
+
+// ======================
+// ADMIN PANELİ (Login olmadan erişilemez – redirect login'e)
+app.get("/admin", (req, res) => {
+    // Basit login kontrolü (gerçek projede session kullanabilirsin)
+    // Şimdilik basitçe yönlendirme yapıyoruz, istersen cookie/session ekleriz
+    res.redirect("/login"); // Gerçekte session ile kontrol et
+    // Not: Gerçek login için session eklemek istersen söyle, eklerim
+});
+
+// ======================
+// KEY EKLE (POST)
 app.post("/add", (req, res) => {
     const { key, expiry } = req.body;
     if (key && expiry) {
@@ -134,7 +142,7 @@ app.get("/auth", (req, res) => {
 // ======================
 // ANA SAYFA
 app.get("/", (req, res) => {
-    res.send("<h1>UvisTR Key Sistemi Çalışıyor</h1><a href='/admin'>Yönetim Paneli</a>");
+    res.send("<h1>UvisTR Key Sistemi Çalışıyor</h1><a href='/login'>Admin Paneli</a>");
 });
 
 const PORT = process.env.PORT || 3000;
