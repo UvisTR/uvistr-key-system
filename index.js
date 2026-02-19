@@ -2,63 +2,101 @@ const express = require("express");
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
+// ======================
+// VERİTABANI (In-Memory - Render için yeterli)
 let keys = {
-    "Uvis-VIP-2026": { expiry: "2026-12-31", hwid: null }
+    "Uvis-VIP-2026": { 
+        expiry: "2026-12-31", 
+        hwid: null 
+    }
 };
 
 const SECRET_AUTH = "UvisTR_2026_Secure";
 
+// ======================
+// ADMIN PANELİ
 app.get("/admin", (req, res) => {
-    let keyRows = Object.keys(keys).map(k => `
-        <div style="background:#1e293b; padding:15px; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border:1px solid #334155;">
-            <div>
-                <b style="color:#38bdf8; font-size:18px;">${k}</b><br>
-                <small style="color:#94a3b8;">📅 Bitiş: ${keys[k].expiry} | 🆔 HWID: ${keys[k].hwid || "Bekleniyor"}</small>
-            </div>
-            <div>
-                <a href="/reset?key=${k}" style="background:#fbbf24; color:black; padding:5px 10px; border-radius:4px; text-decoration:none; font-weight:bold; margin-right:5px;">Sıfırla</a>
-                <a href="/delete?key=${k}" style="background:#ef4444; color:white; padding:5px 10px; border-radius:4px; text-decoration:none; font-weight:bold;">Sil</a>
-            </div>
-        </div>`).join("");
+    let html = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="utf-8">
+        <title>UvisTR Key Sistemi - Admin</title>
+        <style>
+            body { background:#0f172a; color:white; font-family:Arial; padding:30px; }
+            h1 { color:#38bdf8; }
+            .key { background:#1e293b; padding:15px; margin:10px 0; border-radius:8px; border:1px solid #334155; }
+            input, button { padding:10px; margin:5px; border-radius:6px; border:none; }
+            button { background:#38bdf8; color:black; font-weight:bold; cursor:pointer; }
+            .danger { background:#ef4444; color:white; }
+        </style>
+    </head>
+    <body>
+        <h1>UvisTR Key Yönetim Paneli</h1>
+        
+        <form action="/add" method="POST">
+            <input name="key" placeholder="Yeni Key (ör: Premium2026)" required>
+            <input name="expiry" type="date" required>
+            <button type="submit">Key Ekle</button>
+        </form>
 
-    res.send(`
-        <!DOCTYPE html>
-        <html style="background:#0f172a; color:white; font-family:sans-serif;">
-        <head><title>UvisTR Dashboard</title></head>
-        <body style="padding:40px; max-width:800px; margin:auto;">
-            <h1 style="color:#38bdf8; border-bottom:2px solid #1e293b; padding-bottom:10px;">UvisTR Yönetim Paneli</h1>
-            <form action="/add" method="POST" style="background:#1e293b; padding:20px; border-radius:12px; margin-bottom:20px;">
-                <input name="key" placeholder="Yeni Key" style="padding:10px; border-radius:4px; border:none; width:200px;" required>
-                <input name="expiry" type="date" style="padding:10px; border-radius:4px; border:none;" required>
-                <button type="submit" style="padding:10px 20px; border-radius:4px; background:#38bdf8; border:none; font-weight:bold; cursor:pointer;">Key Ekle</button>
-            </form>
-            <div>${keyRows}</div>
-        </body>
-        </html>
-    `);
+        <h2>Mevcut Keyler</h2>
+    `;
+
+    Object.keys(keys).forEach(k => {
+        html += `
+        <div class="key">
+            <b style="color:#38bdf8; font-size:18px;">${k}</b><br>
+            <small>Bitiş: ${keys[k].expiry} | HWID: ${keys[k].hwid || "<span style='color:#fbbf24'>Bekleniyor</span>"}</small><br>
+            <a href="/reset?key=${k}" style="color:#fbbf24; text-decoration:none;">HWID Sıfırla</a> | 
+            <a href="/delete?key=${k}" class="danger" style="text-decoration:none;">Sil</a>
+        </div>`;
+    });
+
+    html += `</body></html>`;
+    res.send(html);
 });
 
+// ======================
+// KEY EKLE
 app.post("/add", (req, res) => {
     const { key, expiry } = req.body;
-    if(key) keys[key] = { expiry: expiry, hwid: null };
+    if (key && expiry) {
+        keys[key] = { expiry: expiry, hwid: null };
+        console.log(`[ADMIN] Yeni key eklendi: ${key} | Bitiş: ${expiry}`);
+    }
     res.redirect("/admin");
 });
 
-app.get("/delete", (req, res) => {
-    delete keys[req.query.key];
-    res.redirect("/admin");
-});
-
+// ======================
+// HWID SIFIRLA
 app.get("/reset", (req, res) => {
-    if(keys[req.query.key]) keys[req.query.key].hwid = null;
+    const key = req.query.key;
+    if (keys[key]) {
+        keys[key].hwid = null;
+        console.log(`[ADMIN] HWID sıfırlandı: ${key}`);
+    }
     res.redirect("/admin");
 });
 
+// ======================
+// KEY SİL
+app.get("/delete", (req, res) => {
+    const key = req.query.key;
+    if (keys[key]) {
+        delete keys[key];
+        console.log(`[ADMIN] Key silindi: ${key}`);
+    }
+    res.redirect("/admin");
+});
+
+// ======================
+// LOADER İÇİN AUTH ENDPOINT (HWID KONTROLLÜ)
 app.get("/auth", (req, res) => {
     const { key, hwid, auth } = req.query;
 
     if (auth !== SECRET_AUTH) {
-        console.log("[AUTH] Yanlış SECRET!");
+        console.log("[AUTH] Yanlış SECRET denemesi!");
         return res.json({ success: false, message: "Yetkisiz erişim" });
     }
 
@@ -67,30 +105,39 @@ app.get("/auth", (req, res) => {
     }
 
     if (!keys[key]) {
+        console.log(`[AUTH] Geçersiz key: ${key}`);
         return res.json({ success: false, message: "Geçersiz Key!" });
     }
 
-    let k = keys[key];
+    const k = keys[key];
 
     // Süre kontrolü
     if (new Date(k.expiry) < new Date()) {
+        console.log(`[AUTH] Süresi bitmiş key: ${key}`);
         return res.json({ success: false, message: "Key süresi bitmiş!" });
     }
 
     // HWID kontrolü
     if (k.hwid === null) {
-        k.hwid = hwid;                    // İlk kullanım → HWID kaydet
-        console.log(`[AUTH] Yeni HWID kaydedildi → ${key} | ${hwid}`);
+        k.hwid = hwid;
+        console.log(`[AUTH] HWID kaydedildi → Key: ${key} | HWID: ${hwid}`);
     } 
     else if (k.hwid !== hwid) {
-        console.log(`[AUTH] HWID uyuşmazlığı → ${key}`);
+        console.log(`[AUTH] HWID uyuşmazlığı → Key: ${key}`);
         return res.json({ success: false, message: "Bu key başka cihazda kullanılıyor!" });
     }
 
+    console.log(`[AUTH] Başarılı giriş → Key: ${key}`);
     res.json({ success: true });
 });
 
-app.get("/", (req, res) => res.send("<h1>Sistem Aktif!</h1><a href='/admin'>Paneli Aç</a>"));
+// ======================
+// ANA SAYFA
+app.get("/", (req, res) => {
+    res.send("<h1>UvisTR Key Sistemi Çalışıyor</h1><a href='/admin'>Yönetim Paneli</a>");
+});
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("UvisTR Sunucusu Port " + PORT + " üzerinde hazır!"));
+app.listen(PORT, () => {
+    console.log(`UvisTR Key Sistemi ${PORT} portunda çalışıyor!`);
+});
