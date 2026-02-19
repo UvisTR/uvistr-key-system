@@ -13,8 +13,8 @@ let keys = {
 
 // Admin bilgileri (şifre değiştikçe güncelleniyor)
 let admin = {
-    username: "admin",
-    password: "UvisTR2026"
+    username: "1",
+    password: "1"
 };
 
 const SECRET_AUTH = "UvisTR_2026_Secure";
