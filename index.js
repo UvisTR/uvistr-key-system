@@ -56,14 +56,38 @@ app.get("/reset", (req, res) => {
 
 app.get("/auth", (req, res) => {
     const { key, hwid, auth } = req.query;
-    if (auth !== SECRET_AUTH) return res.status(403).json({ success: false });
-    if (keys[key]) {
-        let k = keys[key];
-        if (k.hwid === null) k.hwid = hwid;
-        if (k.hwid !== hwid) return res.json({ success: false, message: "Cihaz Hatası!" });
-        return res.json({ success: true, expiry: k.expiry });
+
+    if (auth !== SECRET_AUTH) {
+        console.log("[AUTH] Yanlış SECRET!");
+        return res.json({ success: false, message: "Yetkisiz erişim" });
     }
-    res.json({ success: false, message: "Geçersiz Key!" });
+
+    if (!key || !hwid) {
+        return res.json({ success: false, message: "Key veya HWID eksik" });
+    }
+
+    if (!keys[key]) {
+        return res.json({ success: false, message: "Geçersiz Key!" });
+    }
+
+    let k = keys[key];
+
+    // Süre kontrolü
+    if (new Date(k.expiry) < new Date()) {
+        return res.json({ success: false, message: "Key süresi bitmiş!" });
+    }
+
+    // HWID kontrolü
+    if (k.hwid === null) {
+        k.hwid = hwid;                    // İlk kullanım → HWID kaydet
+        console.log(`[AUTH] Yeni HWID kaydedildi → ${key} | ${hwid}`);
+    } 
+    else if (k.hwid !== hwid) {
+        console.log(`[AUTH] HWID uyuşmazlığı → ${key}`);
+        return res.json({ success: false, message: "Bu key başka cihazda kullanılıyor!" });
+    }
+
+    res.json({ success: true });
 });
 
 app.get("/", (req, res) => res.send("<h1>Sistem Aktif!</h1><a href='/admin'>Paneli Aç</a>"));
