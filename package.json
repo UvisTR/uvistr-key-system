@@ -1,7 +1,7 @@
 {
-  "name": "uvistr-auth",
+  "name": "uvistr-key-system",
   "version": "1.0.0",
-  "description": "",
+  "description": "UvisTR Key Yönetim Paneli",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
